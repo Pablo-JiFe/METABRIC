@@ -1,12 +1,14 @@
 
+# 1.- Dividing by median of time until death ------------------------------
 
-# 9.1 Dividir en tiempo con base a mediana 
 
-# Obtiene la mediana
+# 1.1 Dividing time until death form median
+
+# 1.1.2 Obtain median
 
 median_disease.brca <- median(metadata_diseased.brca$OS_MONTHS)
 
-# Genera una columna booleana donde los TRUE son aquellos que muerieron de manera temprana
+# 1.2 Generate column corresponding to if time until death was earlier or later than the median
 
 metadata_diseased.brca <- metadata_diseased.brca %>% 
   mutate(BOOLEAN_TEMP = ifelse(OS_MONTHS <= median_disease.brca,
@@ -14,64 +16,70 @@ metadata_diseased.brca <- metadata_diseased.brca %>%
                                no = "Late"))
 
 
+# 2.- Differential expression -----------------------------------------------
 
-
-
-# 9.- Expresión diferencial -----------------------------------------------
-
-
-# Data frame donde los rownames son los nombres de los pacientes y adicionalmente tiene una columna
-# que especifica si murieron antes de la mediana o despues
+#> 2.1 Data frame where row names correspond to the names of the patients and adittionaly contains the column
+#> previously established as being correspondant to early or late death with respect to the median
 
 col_data <- data.frame(metadata_diseased.brca$BOOLEAN_TEMP, row.names = metadata_diseased.brca$PATIENT_ID)
 
-# Conteo de los pacientes que se encuentran en esta población (unicamente los muertos por cancer de mama)
+# 2.2 Data counts of the patients that are either alive or died because of breast cancer
 
 count_data <- counts_data[colnames(counts_data) %in% metadata_diseased.brca$PATIENT_ID]
 
-# Que esten en el mismo orden los metadatos y los samples de los datos
+# 2.2.2 Making shure they are in the same order
 
 count_data <- count_data[match(rownames(col_data), colnames(count_data))]
 
-# Revisar que esten los mismos y en mismo orden
-
 all(colnames(count_data) == rownames(col_data))
 
-# Cambiar el nombre
+# 2.2.3 Changing the name
 
-col_data$BOOLEAN_TEMP <- col_data$metadata_diseased.brca.BOOLEAN_TEMP
+col_data <-
+  col_data %>% 
+  mutate(BOOLEAN_TEMP = metadata_diseased.brca.BOOLEAN_TEMP,
+         .keep = "unused")
 
-# Eliminar columna de nombre que no quiero
 
-col_data$metadata_diseased.brca.BOOLEAN_TEMP <- NULL
-
-
-# 2.3 Generar el limma object
+# 2.3 enerate limma object
 
 
 library(limma)
 
+# 2.4 Design based on object separating on alive and diseased
+
 design <- model.matrix(~ 0 + BOOLEAN_TEMP, data = col_data)
+
+# 2.4.2 Asign make.names objects as colnames
 
 colnames(design) <- make.names(colnames(design)) 
 
+# 2.5 Fit
 
 fit <- lmFit(count_data, design)
 
+# 2.5.2 Contrast matrix comparing late vs early
+
 contrast.matrix <- makeContrasts(BOOLEAN_TEMPLate - BOOLEAN_TEMPEarly,
                                  levels = design)
+
+# 2.5.3 Fit based on contrasts
+
 fit <- contrasts.fit(fit, contrast.matrix)
 fit <- eBayes(fit)
 
 topTable(fit)
 
+# 2.6 Results
 
 res <- topTable(fit, coef = 1, number = Inf)
 
+# 2.6.2 Results that correspond to a signfiicant p value and log fold change
 
 res_sig <- res %>%
   filter(adj.P.Val < 0.05 & abs(logFC) > 1)
 
+# 2.7 QQ plot
 
 qqt(
   fit$t,
@@ -80,3 +88,5 @@ qqt(
   cex = 0.2
 )
 abline(-0.1, 2.8, col = "red", lwd = 2)
+
+
