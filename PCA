@@ -9,11 +9,15 @@ pca_brca <- prcomp(microarray_data.norm,
 fviz_eig(pca_brca, 
          addlabels = TRUE)
 
+# Order metadata PATIENT ID to be in the same sequence as the cluster object for later grpah comparison
+
+metadata <- metadata[match(cluster_df$PATIENT_ID, metadata$PATIENT_ID),]
+
 # Plot PCA
 fviz_pca_ind(pca_brca,
              title = "PCA clusers",
              geom = "point",
-             habillage = cluster_df$CLUSTER,
+             habillage = metadata$CLUSTER,
              alpha.ind = 0.4,
              addEllipses = TRUE,
              repel = TRUE,
