@@ -36,5 +36,11 @@ table(clusters)
 
 # Guardar dataframe 
 cluster_df <- data.frame(
-  cluster = clusters)
+  CLUSTER = clusters)
+
+# Poner en cluster_df columna de "PATIENT_ID" con los rownames de microarray_data.norm
+cluster_df$"PATIENT_ID" <- rownames(microarray_data.norm) 
+
+metadata <- merge(cluster_df, metadata, # Ahora sí unir clínica con df de clusters
+                          by = "PATIENT_ID")
 
