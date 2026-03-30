@@ -1,0 +1,82 @@
+
+
+# 9.1 Dividir en tiempo con base a mediana 
+
+# Obtiene la mediana
+
+median_disease.brca <- median(metadata_diseased.brca$OS_MONTHS)
+
+# Genera una columna booleana donde los TRUE son aquellos que muerieron de manera temprana
+
+metadata_diseased.brca <- metadata_diseased.brca %>% 
+  mutate(BOOLEAN_TEMP = ifelse(OS_MONTHS <= median_disease.brca,
+                               yes = "Early",
+                               no = "Late"))
+
+
+
+
+
+# 9.- Expresión diferencial -----------------------------------------------
+
+
+# Data frame donde los rownames son los nombres de los pacientes y adicionalmente tiene una columna
+# que especifica si murieron antes de la mediana o despues
+
+col_data <- data.frame(metadata_diseased.brca$BOOLEAN_TEMP, row.names = metadata_diseased.brca$PATIENT_ID)
+
+# Conteo de los pacientes que se encuentran en esta población (unicamente los muertos por cancer de mama)
+
+count_data <- counts_data[colnames(counts_data) %in% metadata_diseased.brca$PATIENT_ID]
+
+# Que esten en el mismo orden los metadatos y los samples de los datos
+
+count_data <- count_data[match(rownames(col_data), colnames(count_data))]
+
+# Revisar que esten los mismos y en mismo orden
+
+all(colnames(count_data) == rownames(col_data))
+
+# Cambiar el nombre
+
+col_data$BOOLEAN_TEMP <- col_data$metadata_diseased.brca.BOOLEAN_TEMP
+
+# Eliminar columna de nombre que no quiero
+
+col_data$metadata_diseased.brca.BOOLEAN_TEMP <- NULL
+
+
+# 2.3 Generar el limma object
+
+
+library(limma)
+
+design <- model.matrix(~ 0 + BOOLEAN_TEMP, data = col_data)
+
+colnames(design) <- make.names(colnames(design)) 
+
+
+fit <- lmFit(count_data, design)
+
+contrast.matrix <- makeContrasts(BOOLEAN_TEMPLate - BOOLEAN_TEMPEarly,
+                                 levels = design)
+fit <- contrasts.fit(fit, contrast.matrix)
+fit <- eBayes(fit)
+
+topTable(fit)
+
+
+res <- topTable(fit, coef = 1, number = Inf)
+
+
+res_sig <- res %>%
+  filter(adj.P.Val < 0.05 & abs(logFC) > 1)
+
+
+qqt(
+  fit$t,
+  df = fit$df.prior + fit$df.residual,
+  pch = 16,
+  cex = 0.2
+)
+abline(-0.1, 2.8, col = "red", lwd = 2)
