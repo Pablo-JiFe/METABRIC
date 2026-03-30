@@ -1,0 +1,7 @@
+library(factoextra)
+
+# Voltear para que en filas quede MB y en columnas los genes porque el clustering agrupa filas
+data_brca.ord <- t(brca_data.fil)
+
+# Normalizar
+data_brca.norm <- scale(data_brca.ord)
