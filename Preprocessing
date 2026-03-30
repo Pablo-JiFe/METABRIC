@@ -5,8 +5,7 @@ library(tidyverse)
 microarray_data <- read.table("D:/brca_metabric/brca_metabric/data_mrna_illumina_microarray.txt",
                               header = TRUE)
 
-
-# 1.2 Metadata
+# 1.1.2 Metadata
 
 clinical_data <- read.delim(
   "D:/brca_metabric/brca_metabric/data_clinical_patient.txt",
@@ -14,44 +13,43 @@ clinical_data <- read.delim(
   stringsAsFactors = FALSE
 )
 
-# 1.2.2 Check if rownames in clinical data have the same nomenclature as the colname sin microarray_data, if they differ by a point or dash (MB.0000 vs MB-0000) use
+# 1.1.3 Check if rownames in clinical data have the same nomenclature as the colname sin microarray_data, if they differ by a point or dash (MB.0000 vs MB-0000) use
 # clinical_data$PATIENT_ID <- gsub("-", ".", clinical_data$PATIENT_ID)
 
-# 1.3 Object without ENTREZ and HUGO columns
+# 1.1.4 Object without ENTREZ and HUGO columns
 
 microarray_data.num <- microarray_data[,-(1:2)] # Objeto con los samples sin las columnas de los nombres de entrez y hugo
 
 
-# 2.- Eliminar duplicados y columnas con caracteres -----------------------
+# 1.2.- Eliminate duplicates and Hugo IDs -----------------------
 
-# 2.1 Hay ids de Hugo duplicados por lo que quiero eliminar los duplicados manteniendome unicamente con
-# los que representan conteos con mayor varianza
+# 1.2.1 There are Hugo IDs duplicated, and thus we search for variance and keep the duplicate with hiugher variance
 
-# 2.2 Se hace la varianza a todos
+# 1.2.2 Variance
 
 microarray_data.var <- apply(microarray_data.num, 1, var)
 
-# 2.3 Se asigna a nueva columna
+# 1.2.3 Asign new column with variance
 
 microarray_data$variance <- microarray_data.var
 
-# 2.5 Unicamente mantener los genes con mayor varianza
+# 1.2.4 Only mantain the version of the gene duplicate with higher variance
 
-microarray_data.unique <- microarray_data %>% # Datos iniciales
-  group_by(Hugo_Symbol) %>% # Agrupar por nombre de Entrez (es decir agrupar repetidos)
-  slice_max(order_by = variance, n = 1) %>% # Ordenar por varianza y quedarse con los mas altos de cada grupo
+microarray_data.unique <- microarray_data %>% # Initial data
+  group_by(Hugo_Symbol) %>% # Group by HUGO symbol
+  slice_max(order_by = variance, n = 1) %>% # Order by variance and keep the highest
   ungroup()
 
 
-# 2.5.2 Convertir de tibble a Data frame
+# 1.2.5 Convert from tibble to data frame
 
 microarray_data.unique <- as.data.frame(microarray_data.unique)
 
-# 2.6 Ahora si asigno los nombres de entrez como rownames
+# 1.2.6 Asign Hugo symbol as rownames
 
 rownames(microarray_data.unique) <- microarray_data.unique$Hugo_Symbol
 
-# 2.6.2 Elimino las columnas con los nombres hugo y entrez para que no influyan en los calculos
+# 1.2.7 Delete the columns with hugo, entrez and variance.
 
 microarray_data.unique$Hugo_Symbol <- NULL
 microarray_data.unique$Entrez_Gene_Id <- NULL
@@ -59,24 +57,20 @@ microarray_data.unique$variance <- NULL
 microarray_data$variance <- NULL
 
 
+##############################################
+
+# 2.- METADATA -----------------------
 
 
-# METADATA
-
-
-
-
-# 1.4 Metadata que contiene unicamente a los pacientes de los que también tenemos conteos de rna por microarray
+# 2.1 Metadata que contiene unicamente a los pacientes de los que también tenemos conteos de rna por microarray
 
 metadata <- clinical_data[clinical_data$PATIENT_ID %in% colnames(microarray_data.num),]
 
-# 8.1 Columna en el que 1 representa defunción y 0 representa que continua con vida
+# 2.2 Columna en el que 1 representa defunción y 0 representa que continua con vida
 
 metadata$survival_stat <- as.numeric(gsub(":.*", "", metadata$OS_STATUS))
 
-
-
-# Datos de unicamente los muertos por cancer
+# 2.3 Datos de unicamente los muertos por cancer
 
 metadata_diseased.brca <- metadata[metadata$survival_stat > 0 & metadata$VITAL_STATUS == "Died of Disease",]
 
