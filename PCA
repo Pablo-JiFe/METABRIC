@@ -15,7 +15,7 @@ metadata <- metadata[match(cluster_df$PATIENT_ID, metadata$PATIENT_ID),]
 
 # Plot PCA
 fviz_pca_ind(pca_brca,
-             title = "PCA clusers",
+             title = "PCA clusters",
              geom = "point",
              habillage = metadata$CLUSTER,
              alpha.ind = 0.4,
