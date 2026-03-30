@@ -1,7 +1,40 @@
 library(factoextra)
 
+# Filter x more variable genes
+top.genes  <- order(microarray_data.unique$variance, decreasing = TRUE)[1:500] # pick 5000 more variable genes
+microarray_data.fil <- microarray_data.unique[top.genes, ] # Create df with only 5000 genes
+microarray_data.unique$variance <- NULL
+microarray_data.fil$variance <- NULL
+
 # Voltear para que en filas quede MB y en columnas los genes porque el clustering agrupa filas
-data_brca.ord <- t(brca_data.fil)
+microarray_data.org <- t(microarray_data.fil)
 
 # Normalizar
-data_brca.norm <- scale(data_brca.ord)
+microarray_data.norm <- scale(microarray_data.org)
+
+# Select clustering number
+fviz_nbclust(microarray_data.norm, FUN = hcut, method = "silhouette")
+
+# Distance matrix between samples
+dist_microarray.brca <- get_dist(microarray_data.norm, method = "euclidean")
+
+# Clustering jerárquico
+hc.out_microarray.brca <- hclust(dist_microarray.brca, method = "ward.D2")
+
+
+# Graficar dendrograma
+plot(hc.out_microarray.brca, labels = FALSE, hang = -1,
+     main = "CLUSTERING JERÁRQUICO METABRIC")
+
+rect.hclust(hc.out_microarray.brca, k = 2, border = "purple") # bottom up approach
+
+# Cortar  árbol para obtener clusters
+clusters <- cutree(hc.out_microarray.brca, k = 2)
+
+# Ver cuántas muestras quedaron en cada cluster
+table(clusters)
+
+# Guardar dataframe 
+cluster_df <- data.frame(
+  cluster = clusters)
+
