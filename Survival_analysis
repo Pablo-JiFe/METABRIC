@@ -1,0 +1,21 @@
+
+
+# 1.- Survival analysis ---------------------------------------------------
+
+library(survival)
+library(survminer)
+
+
+# 1.1 Survival
+
+surv <- Surv(metadata_diseased.brca$OS_MONTHS, metadata_diseased.brca$survival_stat)
+
+# 1.2 Survival based on cluster
+
+survfit <- survfit(surv ~ CLUSTER, data = metadata_diseased.brca)
+
+ggsurvplot(survfit)
+
+# 1.3 Cox survival
+
+fit <- coxph(surv ~ LYMPH_NODES_EXAMINED_POSITIVE + CLUSTER + CHEMOTHERAPY, data = metadata_diseased.brca)
