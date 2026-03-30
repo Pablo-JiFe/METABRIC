@@ -1,0 +1,20 @@
+library(factoextra)
+
+# Create PCA with normalized matrix
+pca_brca <- prcomp(microarray_data.norm, 
+                   center = FALSE, 
+                   scale. = FALSE)
+
+#Scree Plot of Variance: how much variance each PCA explains
+fviz_eig(pca_brca, 
+         addlabels = TRUE)
+
+# Plot PCA
+fviz_pca_ind(pca_brca,
+             title = "PCA clusers",
+             geom = "point",
+             habillage = cluster_df$CLUSTER,
+             alpha.ind = 0.4,
+             addEllipses = TRUE,
+             repel = TRUE,
+             palette = c("purple", "violet"))
