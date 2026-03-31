@@ -18,7 +18,7 @@ clinical_data$PATIENT_ID <- gsub("-", ".", clinical_data$PATIENT_ID)
 
 # 1.1.4 Object without ENTREZ and HUGO columns
 
-microarray_data.num <- microarray_data[,-(1:2)] # Objeto con los samples sin las columnas de los nombres de entrez y hugo
+microarray_data.num <- microarray_data[,-(1:2)] # Object with samples without columns of names of entrez and hugo
 
 
 # 1.2.- Eliminate duplicates and Hugo IDs -----------------------
