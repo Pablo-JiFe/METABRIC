@@ -16,6 +16,9 @@ metadata_diseased.brca <- metadata_diseased.brca %>%
                                no = "Late"))
 
 
+
+
+
 # 2.- Differential expression -----------------------------------------------
 
 #> 2.1 Data frame where row names correspond to the names of the patients and adittionaly contains the column
@@ -78,6 +81,7 @@ res <- topTable(fit, coef = 1, number = Inf)
 
 res_sig <- res %>%
   filter(adj.P.Val < 0.05 & abs(logFC) > 1)
+
 
 # 2.7 QQ plot
 
