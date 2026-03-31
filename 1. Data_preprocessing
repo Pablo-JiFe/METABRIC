@@ -22,7 +22,7 @@ microarray_data.num <- microarray_data[,-(1:2)]
 
 # 1.2.- Eliminate duplicates and Hugo IDs -----------------------
 
-# 1.2.1 There are Hugo IDs duplicated, and thus we search for variance and keep the duplicate with hiugher variance
+# 1.2.1 There are Hugo IDs duplicated, and thus we search for variance and keep the duplicate with higher variance
 
 # 1.2.2 Variance
 
@@ -32,7 +32,7 @@ microarray_data.var <- apply(microarray_data.num, 1, var)
 
 microarray_data$variance <- microarray_data.var
 
-# 1.2.4 Only mantain the version of the gene duplicate with higher variance
+# 1.2.4 Only maintain the version of the gene duplicate with higher variance
 
 microarray_data.unique <- microarray_data %>% # Initial data
   group_by(Hugo_Symbol) %>% # Group by HUGO symbol
