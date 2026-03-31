@@ -1,3 +1,10 @@
+library(tidyverse)
+
+# 1.- Data loading --------------------------------------------------
+
+microarray_data <- read.table("D:/brca_metabric/brca_metabric/data_mrna_illumina_microarray.txt",
+                              header = TRUE)
+
 # 1.1.2 Metadata
 
 clinical_data <- read.delim(
@@ -67,4 +74,6 @@ metadata$SURVIVAL_STAT <- as.numeric(gsub(":.*", "", metadata$OS_STATUS))
 # 2.3 Metadata of only the patients that are dead because of breast cancer
 
 metadata_diseased.brca <- metadata[metadata$SURVIVAL_STAT > 0 & metadata$VITAL_STATUS == "Died of Disease",]
+
+
 
