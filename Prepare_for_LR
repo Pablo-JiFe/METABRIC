@@ -15,17 +15,21 @@ late_death.genes <- rownames(res_sig)[res_sig$logFC > 0]
 
 # 1.3 Object with all the patients and expression of only the genes of interest
 
-late_genes.patients <- microarray_data.unique[rownames(microarray_data.unique) %in% late_death.genes, ]
+late_genes.patients <- counts_data[rownames(counts_data) %in% late_death.genes, ]
   
 # 1.4 Scale so that they are comparable
+
+#late_genes.patients <- t(late_genes.patients)
 
 late_genes.patients <- scale(t(late_genes.patients))
 
 # 1.5.1 Check that the patients are in the same order
 
+metadata <- metadata[match(rownames(late_genes.patients),metadata$PATIENT_ID),]
+
 all(rownames(late_genes.patients) == metadata$PATIENT_ID)
 
-# 1.5.2 Add a column of SURVIVAL as a bnary term for it to be the outcome
+# 1.5.2 Add a column of SURVIVAL as a binary term for it to be the outcome
 
 late_genes.patients <- 
   late_genes.patients %>% 
