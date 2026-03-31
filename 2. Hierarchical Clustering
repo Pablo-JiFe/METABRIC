@@ -1,6 +1,5 @@
 library(factoextra)
 
-
 # 1.- Select genes for clustering -----------------------------------------
 
 # 1.1 Filter more variable genes
