@@ -1,3 +1,4 @@
+library(pheatmap)
 
 # 1.- Dividing by median of time until death ------------------------------
 
