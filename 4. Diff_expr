@@ -1,14 +1,15 @@
 
 # 1.- Dividing by median of time until death ------------------------------
 
+HAY QUE ELIMINAR NA!!!!
 
 # 1.1 Dividing time until death form median
 
-# 1.1.2 Obtain median
+# 1.1.2 Obtain median of overall surbival in months
 
 median_disease.brca <- median(metadata_diseased.brca$OS_MONTHS)
 
-# 1.2 Generate column corresponding to if time until death was earlier or later than the median
+# 1.2 Generate column corresponding to time until death if it was earlier or later than the median
 
 metadata_diseased.brca <- metadata_diseased.brca %>% 
   mutate(BOOLEAN_TEMP = ifelse(OS_MONTHS <= median_disease.brca,
@@ -44,7 +45,7 @@ col_data <-
          .keep = "unused")
 
 
-# 2.3 enerate limma object
+# 2.3 Generate limma object
 
 
 library(limma)
@@ -92,5 +93,32 @@ qqt(
   cex = 0.2
 )
 abline(-0.1, 2.8, col = "red", lwd = 2)
+
+# 2.8 HEATMAP
+
+#2.8.1 Vector with the names of significant genes
+genes_sig <- rownames(res_sig)
+
+#2.8.2 Expression submatrix with only significant genes
+expr_sig <- count_data[rownames(count_data) %in% genes_sig, ]
+expr_sig <- expr_sig[genes_sig, ]
+
+#2.8.3 Create column annotations
+annotation_col <- data.frame(Group = col_data[colnames(expr_sig), "BOOLEAN_TEMP"])
+rownames(annotation_col) <- colnames(expr_sig)
+
+#2.8.4 Plot heatmap
+pheatmap(
+  expr_sig,
+  scale = "row",
+  color = colorRampPalette(c("darkblue", "lightblue", "#FFF7FB", "#F9C5D5", "deeppink", "darkviolet"))(100),
+  annotation_col = annotation_col,
+  annotation_colors = list(
+    Group = c(Early = "#F15BB5",Late = "purple")),
+  show_rownames = TRUE,
+  show_colnames = FALSE,
+  clustering_method = "complete",
+  main = "Differentially Expressed Genes: Early vs Late"
+)
 
 
