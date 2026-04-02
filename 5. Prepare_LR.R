@@ -4,7 +4,7 @@
 # 1.- Preparing metadata --------------------------------------------------
 
 
-# 1.1 Object with live patients and patients diseased by breast canbcer
+# 1.1 Object with live patients and patients diseased by breast cancer
 
 alive_brca.death <- metadata[metadata$VITAL_STATUS != "Died of Other Causes" ,]
 
@@ -17,7 +17,7 @@ late_death.genes <- rownames(res_sig)[res_sig$logFC > 0]
 
 late_genes.patients <- counts_data[late_death.genes, alive_brca.death$PATIENT_ID]
   
-# 1.4 Scale so that they are comparable
+# 1.4 Scale and do a transposition so that they are comparable
 
 #late_genes.patients <- t(late_genes.patients)
 
