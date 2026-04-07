@@ -2,8 +2,6 @@ library(pheatmap)
 
 # 1.- Dividing by median of time until death ------------------------------
 
-HAY QUE ELIMINAR NA!!!!
-
 # 1.1 Dividing time until death form median
 
 # 1.1.2 Obtain median of overall surbival in months
