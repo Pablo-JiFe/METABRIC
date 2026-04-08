@@ -1,5 +1,22 @@
 library(limma)
 # 1.- Dividing by lymph nodes ------------------------------
+library(pheatmap)
+
+# 1.- Dividing by median of time until death ------------------------------
+
+# 1.1 Dividing time until death form median
+
+# 1.1.2 Obtain median of overall survival in months
+
+median_disease.brca <- median(metadata_diseased.brca$OS_MONTHS)
+
+# 1.2 Generate column corresponding to time until death if it was earlier or later than the median
+
+metadata_diseased.brca <- metadata_diseased.brca %>% 
+  mutate(BOOLEAN_TEMP = ifelse(OS_MONTHS <= median_disease.brca,
+                               yes = "Early",
+                               no = "Late"))
+
 
 # 1.1 Generate column corresponding to lymph nodes, those that have 0 in one group and those with more than 0 in another
 
@@ -18,7 +35,7 @@ col_data <- metadata %>%
 
 count_data <- counts_data[colnames(counts_data) %in% rownames(col_data)]
 
-# 2.2.2 Making shure they are in the same order
+# 2.2.2 Making sure they are in the same order
 
 count_data <- count_data[match(rownames(col_data), colnames(count_data))]
 
