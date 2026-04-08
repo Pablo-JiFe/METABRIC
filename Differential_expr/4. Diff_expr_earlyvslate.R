@@ -1,34 +1,22 @@
-library(pheatmap)
+library(limma)
+# 1.- Dividing by lymph nodes ------------------------------
 
-# 1.- Dividing by median of time until death ------------------------------
+# 1.1 Generate column corresponding to lymph nodes, those that have 0 in one group and those with more than 0 in another
 
-# 1.1 Dividing time until death form median
-
-# 1.1.2 Obtain median of overall surbival in months
-
-median_disease.brca <- median(metadata_diseased.brca$OS_MONTHS)
-
-# 1.2 Generate column corresponding to time until death if it was earlier or later than the median
-
-metadata_diseased.brca <- metadata_diseased.brca %>% 
-  mutate(BOOLEAN_TEMP = ifelse(OS_MONTHS <= median_disease.brca,
-                               yes = "Early",
-                               no = "Late"))
-
-
-
+col_data <- metadata %>%
+  mutate(LYMPH = ifelse(LYMPH_NODES_EXAMINED_POSITIVE == 0, 0, 1),
+         LYMPH = as.factor(LYMPH)) %>%
+  drop_na() %>%
+  select(PATIENT_ID, LYMPH) %>% # Create only the object to use for Limma
+  column_to_rownames("PATIENT_ID")
 
 
 # 2.- Differential expression -----------------------------------------------
 
-#> 2.1 Data frame where row names correspond to the names of the patients and adittionaly contains the column
-#> previously established as being correspondant to early or late death with respect to the median
 
-col_data <- data.frame(metadata_diseased.brca$BOOLEAN_TEMP, row.names = metadata_diseased.brca$PATIENT_ID)
+# 2.2 Data counts of the patients that had lymph node information in the metadata
 
-# 2.2 Data counts of the patients that are either alive or died because of breast cancer
-
-count_data <- counts_data[colnames(counts_data) %in% metadata_diseased.brca$PATIENT_ID]
+count_data <- counts_data[colnames(counts_data) %in% rownames(col_data)]
 
 # 2.2.2 Making shure they are in the same order
 
@@ -36,22 +24,14 @@ count_data <- count_data[match(rownames(col_data), colnames(count_data))]
 
 all(colnames(count_data) == rownames(col_data))
 
-# 2.2.3 Changing the name
-
-col_data <-
-  col_data %>% 
-  mutate(BOOLEAN_TEMP = metadata_diseased.brca.BOOLEAN_TEMP,
-         .keep = "unused")
-
 
 # 2.3 Generate limma object
 
-
 library(limma)
 
-# 2.4 Design based on object separating on alive and diseased
+# 2.4 Design based on object separating on lymph nodes
 
-design <- model.matrix(~ 0 + BOOLEAN_TEMP, data = col_data)
+design <- model.matrix(~ 0 + LYMPH, data = col_data)
 
 # 2.4.2 Asign make.names objects as colnames
 
@@ -61,9 +41,9 @@ colnames(design) <- make.names(colnames(design))
 
 fit <- lmFit(count_data, design)
 
-# 2.5.2 Contrast matrix comparing late vs early
+# 2.5.2 Contrast matrix comparing lymph 0 to > 0 lymph
 
-contrast.matrix <- makeContrasts(BOOLEAN_TEMPLate - BOOLEAN_TEMPEarly,
+contrast.matrix <- makeContrasts(LYMPH0 - LYMPH1,
                                  levels = design)
 
 # 2.5.3 Fit based on contrasts
@@ -80,44 +60,6 @@ res <- topTable(fit, coef = 1, number = Inf)
 # 2.6.2 Results that correspond to a signfiicant p value and log fold change
 
 res_sig <- res %>%
-  filter(adj.P.Val < 0.05 & abs(logFC) > 1)
-
-
-# 2.7 QQ plot
-
-qqt(
-  fit$t,
-  df = fit$df.prior + fit$df.residual,
-  pch = 16,
-  cex = 0.2
-)
-abline(-0.1, 2.8, col = "red", lwd = 2)
-
-# 2.8 HEATMAP
-
-#2.8.1 Vector with the names of significant genes
-genes_sig <- rownames(res_sig)
-
-#2.8.2 Expression submatrix with only significant genes
-expr_sig <- count_data[rownames(count_data) %in% genes_sig, ]
-expr_sig <- expr_sig[genes_sig, ]
-
-#2.8.3 Create column annotations
-annotation_col <- data.frame(Group = col_data[colnames(expr_sig), "BOOLEAN_TEMP"])
-rownames(annotation_col) <- colnames(expr_sig)
-
-#2.8.4 Plot heatmap
-pheatmap(
-  expr_sig,
-  scale = "row",
-  color = colorRampPalette(c("darkblue", "lightblue", "#FFF7FB", "#F9C5D5", "deeppink", "darkviolet"))(100),
-  annotation_col = annotation_col,
-  annotation_colors = list(
-    Group = c(Early = "#F15BB5",Late = "purple")),
-  show_rownames = TRUE,
-  show_colnames = FALSE,
-  clustering_method = "complete",
-  main = "Differentially Expressed Genes: Early vs Late"
-)
-
+  filter(adj.P.Val < 0.01 & abs(logFC) > 0.2) # 0.1
+res_sig 
 
