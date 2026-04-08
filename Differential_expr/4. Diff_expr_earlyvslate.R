@@ -4,7 +4,7 @@ library(pheatmap)
 
 # 1.1 Dividing time until death form median
 
-# 1.1.2 Obtain median of overall surbival in months
+# 1.1.2 Obtain median of overall survival in months
 
 median_disease.brca <- median(metadata_diseased.brca$OS_MONTHS)
 
@@ -30,7 +30,7 @@ col_data <- data.frame(metadata_diseased.brca$BOOLEAN_TEMP, row.names = metadata
 
 count_data <- counts_data[colnames(counts_data) %in% metadata_diseased.brca$PATIENT_ID]
 
-# 2.2.2 Making shure they are in the same order
+# 2.2.2 Making sure they are in the same order
 
 count_data <- count_data[match(rownames(col_data), colnames(count_data))]
 
