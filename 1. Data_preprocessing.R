@@ -66,9 +66,16 @@ counts_data$variance <- NULL
 
 metadata <- clinical_data[clinical_data$PATIENT_ID %in% colnames(microarray_data.num),]
 
-# 2.2 Add column of survival state where 1 is dead and 0 is alive
+metadata  <-   metadata %>% 
+  mutate(ER_POS = ifelse(ER_IHC == "Positve",
+                1,
+                0),
+         SURVIVAL_STAT = as.numeric(gsub(":.*", "", metadata$OS_STATUS)), # 2.2 Add column of survival state where 1 is dead and 0 is alive
+         RECURR_STAT = as.numeric(gsub(":.*", "", metadata$RFS_STATUS))
+         )
+metadata
 
-metadata$SURVIVAL_STAT <- as.numeric(gsub(":.*", "", metadata$OS_STATUS))
+
 
 # 2.3 Metadata of only the patients that are dead because of breast cancer
 
@@ -76,3 +83,7 @@ metadata_diseased.brca <- metadata[metadata$SURVIVAL_STAT > 0 & metadata$VITAL_S
 
 
 
+# 1.1 Object with live patients and patients diseased by breast cancer
+
+alive_brca.death <- metadata %>% 
+  filter(VITAL_STATUS != "Died of Other Causes")
