@@ -159,16 +159,13 @@ final_df <- final_df %>%
   column_to_rownames("file_name")
 
 
+# Find genes present in both
+common_genes <- intersect(boruta_signature, colnames(final_df))
 
-# Create a vector of the genes your model expects
-# required_genes <- c("GBP5", "CDCA5", "FGD3") # Add any others that fail
-# 
-# # Add them to the dataframe as 0 (the mean of scaled data)
-# for(gen in required_genes) {
-#   if(!(gen %in% colnames(final_df))) {
-#     final_df[[gen]] <- 0
-#   }
-# }
+# Check how many you lost
+print(paste("Original:", length(boruta_signature), "Common:", length(common_genes)))
+
+# If there are gene missing, run the lin reg with common_genes as the gene list
 
 
 # This is the "testing" phase
@@ -205,3 +202,18 @@ gse2034_results <- gse2034_results %>%
 
 # Run Cox again
 summary(coxph(Surv(SURVIVAL_MON, SURVIVAL) ~ pred_z, data = gse2034_results))
+
+library(timeROC)
+
+# Assuming gse2034_results has: 
+# SURVIVAL_MON (time), SURVIVAL (event), and pred_z (your score)
+
+res_auc <- timeROC(T = gse2034_results$SURVIVAL_MON,
+                   delta = gse2034_results$SURVIVAL,
+                   marker = -gse2034_results$pred_z,
+                   cause = 1, # The event code
+                   times = c(36, 60, 120), # 3, 5, and 10 years
+                   iid = TRUE)
+
+# View the AUC values
+print(res_auc$AUC)
