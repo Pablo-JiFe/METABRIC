@@ -1,15 +1,21 @@
+library(survival)
+
+
 # In this file we prepare the data for the linear regression model using onl ER+ patients
 # and with survival parameters
 
+label <- "Para predecir supervivencia en pacientes ER positivo de la base de METABRIC "
 
 # 1.- Preparing metadata --------------------------------------------------
 
 er_patients <- alive_brca.death %>% 
   filter(ER_IHC == "Positve")
 
+lm_metadata <- er_patients
+
 # 1.2 List of genes to use (check dictionary below to understand the different variables that are used)
 
-late_death.genes <-  boruta_signature #significant_genes$term #rownames(res_sig) common_genes_meta.gse96058
+late_death.genes <-  common_genes_meta.gse96058 # boruta_signature #significant_genes$term #rownames(res_sig) common_genes_meta.gse96058
 
 
 # 1.3 Object with all the patients ER+ and expression of only the genes of interest
@@ -25,28 +31,29 @@ late_genes.patients <- t(late_genes.patients)
 
 all(rownames(late_genes.patients) == er_patients$PATIENT_ID)
 
-# 1.5.2 Add a column of SURVIVAL as a binary term for it to be the outcome and the months of survival
+# 1.5.2 Add a column of EVENT as a binary term for it to be the outcome and the months of survival
 
 late_genes.patients <- 
   late_genes.patients %>% 
   as.data.frame() %>% 
-  mutate(SURVIVAL = er_patients$SURVIVAL_STAT, 
-         SURVIVAL = as.numeric(SURVIVAL),
-         SURVIVAL_MON = er_patients$OS_MONTHS,
-         SURVIVAL_MON = as.numeric(SURVIVAL_MON)
+  rownames_to_column("PATIENT_ID") %>% 
+  left_join(er_patients, by = "PATIENT_ID") %>% 
+  column_to_rownames("PATIENT_ID") %>% 
+  mutate(EVENT = as.numeric(SURVIVAL_STAT),
+         EVENT_MON = as.numeric(OS_MONTHS)
   ) %>%  # Turn to factor for machine learning
-  filter(SURVIVAL_MON > 0) %>% # Eliminate those with 0 survival months
-  drop_na() 
+  dplyr::select(all_of(late_death.genes),
+         EVENT_MON,
+         EVENT) %>% 
+  filter(EVENT_MON > 0) %>% # Eliminate those with 0 survival months
+  drop_na() %>% 
+    mutate(surv_obj = Surv(
+      time  = EVENT_MON,
+      event = EVENT,
+      type  = "right"))
 
-library(survival)
 
-# 2.- Create surv object for the different ML models as outcome
 
-late_genes.patients$surv_obj <- Surv(
-  time  = late_genes.patients$SURVIVAL_MON,
-  event = late_genes.patients$SURVIVAL,
-  type  = "right"
-)
 
 # /Dictionary/ ##########################
 #>  VARIABLES FOR 1.2 late_death.genes
