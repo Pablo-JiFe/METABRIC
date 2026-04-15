@@ -9,12 +9,11 @@ er_patients <- alive_brca.death %>%
 
 # 1.2 List of genes to use (check dictionary below to understand the different variables that are used)
 
-late_death.genes <-  significant_genes$term #rownames(res_sig)
-significant_genes$term %>% 
-  cat(sep = ", ")
+late_death.genes <-  boruta_signature #significant_genes$term #rownames(res_sig) common_genes_meta.gse96058
 
 
 # 1.3 Object with all the patients ER+ and expression of only the genes of interest
+rownames(counts_data) <- make.names(rownames(counts_data))
 
 late_genes.patients <- counts_data[late_death.genes, er_patients$PATIENT_ID]
 
