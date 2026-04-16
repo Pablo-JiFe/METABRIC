@@ -34,8 +34,8 @@ raw_data <- pre_raw_data
 pre_metadata <- read.delim("C:/R/METABRIC/Validation/GSE2034/Metadatos/GSE2034_metadata", sep = ",")
 metadata_gse <- pre_metadata
 
-#> pData of raw_data initially only contains the ID for the counts and an index
-#> meanwhile metadata_gse contains the full metadata but the IDs differ from the count data IDs
+#> pData of raw_data initially only contains the id for the counts and an index
+#> meanwhile metadata_gse contains the full metadata but the ids differ from the count data ids
 
 # Object that specifies which GSE is in use
 
@@ -49,12 +49,19 @@ gse_obj <- "GSE2034"
 
 metadata_gse <- metadata_gse %>%
   mutate(
-    SURVIVAL = ifelse(relapse..1.True. == 1, 1, 0), # Object to evaluate event
-    SURVIVAL = as.numeric(SURVIVAL),
-    SURVIVAL_MON = time.to.relapse.or.last.follow.up..months., # Object to evaluate time to event
-    SURVIVAL_MON = as.numeric(SURVIVAL_MON),
-    id = GEO.asscession.number
-    )
+    EVENT = ifelse(relapse..1.True. == 1, 1, 0), # Object to evaluate event
+    EVENT = as.numeric(EVENT),
+    EVENT_MON = as.numeric(time.to.relapse.or.last.follow.up..months.), # Object to evaluate time to event
+    id = GEO.asscession.number,
+    ER_STAT = ER.Status,
+    BRAIN_REL = Brain.relapses..1.yes..0.no.
+    ) %>% 
+  dplyr::select(EVENT,
+                EVENT_MON,
+                ER_STAT,
+                id,
+                BRAIN_REL
+                )
 
 # 3.2 Object with the names of each file
 
@@ -72,9 +79,9 @@ pData(raw_data) <-
   rownames_to_column("file_name") %>% # To have the full names
   full_join(metadata_gse, by = "id", keep = FALSE) %>% # Join by names without .CEL.gz
   mutate(comp_file_name = file_name) %>% # Create new column to then add to rownames
-  column_to_rownames("comp_file_name") %>% 
-  mutate(file_name = comp_file_name,
-         comp_file_name = NULL)
+  mutate(file_name = comp_file_name) %>% 
+  column_to_rownames("comp_file_name") 
+
   
 metadata_gse <- pData(raw_data) # Make shure they have the same data this so that metadata also has the identifiers with .CEL.gz to match with the counts
 
@@ -96,14 +103,14 @@ boxplot(exprs(norm_data),
 
 expr_matrix <- exprs(norm_data)
 
-# 5.- Probe ID to symbol --------------------------------------------------
+# 5.- Probe id to symbol --------------------------------------------------
 
-# 5.1 Get mapping to change probe IDs to gene names
+# 5.1 Get mapping to change probe ids to gene names
 
 library(hgu133a.db)
 
 probe_gene <- AnnotationDbi::select(
-  hgu133a.db, # The probe identifiers for thius affymetrix
+  hgu133a.db, # The probe identifiers for this affymetrix
   keys = rownames(expr_matrix),
   columns = "SYMBOL",
   keytype = "PROBEID"
@@ -128,42 +135,49 @@ gene_expres_matrix <-
   as.matrix()
 
 
-# 5.3 Transpose so genes are rows for scaling
-# 5.3.2 scale() works on columns, so we tansposeso patients are rows for the prediction
-
-gse2034_scaled <- scale(t(gene_expres_matrix)) 
-
 # 5.3.3 Convert to a data frame so to add clinical columns
-final_df <- as.data.frame(gse2034_scaled)
+
+final_df <- as.data.frame(gene_expres_matrix)
 
 # 5.4 Keep only ER+ patients
 
 metadata_gse <- metadata_gse %>% 
-  filter(ER.Status == "ER+")
+  filter(ER_STAT == "ER+")
 
 # 5.5 Keep oly patients that are found on the counts
 
-final_df <- final_df[rownames(final_df) %in% metadata_gse$file_name,] %>% 
-  rownames_to_column("file_name")
-
+final_df <- final_df[,colnames(final_df) %in% metadata_gse$file_name] %>% 
+  as.data.frame() %>% 
+  t() 
 
 library(survival)
-# Join with the metadata_gse that was cleaned earlier
-final_df <- final_df %>%
-  left_join(metadata_gse, by = "file_name") %>%
+
+# Keep only genes to analyze and join with the metadata_gse that was cleaned earlier
+
+final_df <- 
+  final_df[,late_death.genes] %>% # Keep only the genes to test
+  as.data.frame() %>% 
+  rownames_to_column("file_name") %>%
+  left_join(metadata_gse, by = "file_name") %>% # Join with metadata
   mutate(
-    surv_obj = Surv(time = SURVIVAL_MON, event = SURVIVAL) # Create the Survival Object inside the dataframe
+    surv_obj = Surv(time = EVENT_MON, event = EVENT) # Create the Survival Object inside the dataframe
   ) %>% 
-  column_to_rownames("file_name")
+  column_to_rownames("file_name") %>% 
+  dplyr::select(- index, # Select only the columns of interest and discard the rest
+                - id,
+                - ER_STAT,
+                - BRAIN_REL)
 
 
 # Find genes present in both data sets
-common_genes_meta.gse2043 <- intersect(boruta_signature, colnames(final_df))
+common_genes_meta.gse2043 <- intersect(late_death.genes, colnames(final_df))
 
 # Check how many are lost
-print(paste("Original:", length(boruta_signature), "Common:", length(common_genes_meta.gse2043)))
+print(paste("Original:", length(late_death.genes), "Common:", length(common_genes_meta.gse2043)))
 
 # If there are gene missing, run the lin reg with common_genes as the gene list
+
+
 
 ##################################################################
 
@@ -178,7 +192,7 @@ gse2034_results <- predict(final_fit, new_data = final_df) %>%
 
 # To get the p value
 
-validation_test <- coxph(Surv(SURVIVAL_MON, SURVIVAL) ~ .pred_time, data = gse2034_results)
+validation_test <- coxph(Surv(EVENT_MON, EVENT) ~ .pred_time, data = gse2034_results)
 
 summary(validation_test)
 
@@ -192,7 +206,7 @@ gse2034_results <- gse2034_results %>%
 
 # Fit the KM curve
 
-km_fit <- survfit(Surv(SURVIVAL_MON, SURVIVAL) ~ risk_group, data = gse2034_results)
+km_fit <- survfit(Surv(EVENT_MON, EVENT) ~ risk_group, data = gse2034_results)
 
 # Plot
 
@@ -209,14 +223,14 @@ gse2034_results <- gse2034_results %>%
 
 # Run Cox again
 
-summary(coxph(Surv(SURVIVAL_MON, SURVIVAL) ~ pred_z, data = gse2034_results))
+summary(coxph(Surv(EVENT_MON, EVENT) ~ pred_z, data = gse2034_results))
 
 library(timeROC)
 
 # Area under the curve per time
 
-res_auc <- timeROC(T = gse2034_results$SURVIVAL_MON,
-                   delta = gse2034_results$SURVIVAL,
+res_auc <- timeROC(T = gse2034_results$EVENT_MON,
+                   delta = gse2034_results$EVENT,
                    marker = -gse2034_results$pred_z,
                    cause = 1, # The event code
                    times = c(36, 60, 120), # 3, 5, and 10 years
