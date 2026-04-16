@@ -1,4 +1,4 @@
-# This script is to perform signature validation on GSE 2043
+# This script is to perform signature validation on GSE 2034
 
 library(oligo)
 library(GEOquery)
@@ -60,7 +60,8 @@ metadata_gse <- metadata_gse %>%
                 EVENT_MON,
                 ER_STAT,
                 id,
-                BRAIN_REL
+                BRAIN_REL,
+                
                 )
 
 # 3.2 Object with the names of each file
@@ -141,24 +142,24 @@ final_df <- as.data.frame(gene_expres_matrix)
 
 # 5.4 Keep only ER+ patients
 
-metadata_gse <- metadata_gse %>% 
+metadata.gse2034_er_pos <- metadata_gse %>% 
   filter(ER_STAT == "ER+")
 
 # 5.5 Keep oly patients that are found on the counts
 
-final_df <- final_df[,colnames(final_df) %in% metadata_gse$file_name] %>% 
+final_df <- final_df[,colnames(final_df) %in% metadata.gse2034_er_pos$file_name] %>% 
   as.data.frame() %>% 
   t() 
 
 library(survival)
 
-# Keep only genes to analyze and join with the metadata_gse that was cleaned earlier
+# Keep only genes to analyze and join with the metadata.gse2034_er_pos that was cleaned earlier
 
 final_df <- 
   final_df[,late_death.genes] %>% # Keep only the genes to test
   as.data.frame() %>% 
   rownames_to_column("file_name") %>%
-  left_join(metadata_gse, by = "file_name") %>% # Join with metadata
+  left_join(metadata.gse2034_er_pos, by = "file_name") %>% # Join with metadata
   mutate(
     surv_obj = Surv(time = EVENT_MON, event = EVENT) # Create the Survival Object inside the dataframe
   ) %>% 
@@ -170,10 +171,10 @@ final_df <-
 
 
 # Find genes present in both data sets
-common_genes_meta.gse2043 <- intersect(late_death.genes, colnames(final_df))
+common_genes_meta.gse2034 <- intersect(late_death.genes, colnames(final_df))
 
 # Check how many are lost
-print(paste("Original:", length(late_death.genes), "Common:", length(common_genes_meta.gse2043)))
+print(paste("Original:", length(late_death.genes), "Common:", length(common_genes_meta.gse2034)))
 
 # If there are gene missing, run the lin reg with common_genes as the gene list
 
@@ -193,13 +194,13 @@ final_df_baked <- bake(trained_rec, new_data = final_df)
 
 # This is the predict phase
 
-gse2034_results <- predict(final_df_baked, new_data = final_df) %>%
+gse2034_results <- predict(final_fit, new_data = final_df_baked, type = "linear_pred") %>%
   bind_cols(final_df)
 
 
 # 6.3 To get the p value
 
-validation_test <- coxph(Surv(EVENT_MON, EVENT) ~ .pred_linear_pred, data = gse96058_results)
+validation_test <- coxph(Surv(EVENT_MON, EVENT) ~ .pred_linear_pred, data = gse2034_results)
 
 summary(validation_test)
 
@@ -249,3 +250,25 @@ res_auc <- timeROC(T = gse2034_results$EVENT_MON,
 # View the AUC values
 
 print(res_auc$AUC)
+
+
+# Cox multivariado con clinica
+
+late_genes.patients_gse2034.cox <- 
+  final_df %>% 
+  as.data.frame() %>% 
+  rownames_to_column("file_name") %>% 
+  left_join(metadata.gse2034_er_pos, by = "file_name", suffix = c("", ".y")) %>%
+  dplyr::select(-ends_with(".y")) %>% 
+  column_to_rownames("file_name") %>% 
+  mutate(SCORE = gse2034_results$.pred_linear_pred
+  ) %>% 
+  dplyr::select(all_of(late_death.genes),
+                surv_obj,
+                SCORE
+  ) %>% 
+  na.omit()
+
+independent_prog.gse2034 <- coxph(surv_obj ~ SCORE, 
+                                   data = late_genes.patients_gse2034.cox) %>% 
+  tidy(exponentiate = TRUE, conf.int = TRUE)
