@@ -6,10 +6,6 @@ library(survival)
 
 label <- "Para predecir supervivencia en pacientes ER positivo de la base de METABRIC "
 
-boruta_fus <- c("S100P", "ASCL1", "CDC20", "PTTG1", "CCNB2", "NUSAP1", "ADGRG1", "CENPF", "KIF20A", "CLNS1A", "WWOX", "TPX2", "TROAP", "FEN1", "RACGAP1", "COL4A1", "EVL", "C1QB", "ARNT2", "PSD3", "H4C8", "GOLGA8B", "ESR1", "SEMA6A", "SLC7A5", "H2BC12"
-)
-final_gene_names <- read.csv(paste0(out_path, "final_gene_surv_signature.csv"))
-final_gene_names <- as.character(final_gene_names$x)
 # 1.- Preparing metadata --------------------------------------------------
 
 er_patients <- alive_brca.death %>% 
