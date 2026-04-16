@@ -137,16 +137,8 @@ common_samples <- intersect(colnames(counts_data.gse96058), metadata.gse96058_er
 
 counts_data.gse96058_erpos <- counts_data.gse96058[, common_samples]
 
-counts_data.gse96058_erpos <- scale(t(counts_data.gse96058_erpos))
+counts_data.gse96058_erpos <- t(counts_data.gse96058_erpos)
 
-
-
-
-#> //Dictionary//################################################
-#> 
-#> counts_data.gse96058 <-  Gene counts of the patients with available metadata.gse96058
-#> 
-#> metadata.gse96058_her2_low <- Processed metadata.gse96058
 
 
 # Find genes present in both data sets
@@ -181,13 +173,21 @@ final_df <-
 # 6.- Validation ----------------------------------------------------------
 
 
-# This is the predict phase
+# 6.1 Extract the trained recipe from the workflow
 
-gse96058_results <- predict(final_fit, new_data = final_df, type = "linear_pred") %>%
-  bind_cols(final_df)
+trained_rec <- extract_recipe(final_fit)
+
+# 6.2 "Bake" the RNA-seq data and by that we mean to apply the same steps of the recipe to the new data
+
+final_df_baked <- bake(trained_rec, new_data = final_df)
+
+# 6.3 This is the predict phase
+
+gse96058_results <- predict(final_fit, new_data = final_df_baked, type = "linear_pred") %>%
+  bind_cols(final_df_baked)
 
 
-# To get the p value
+# 6.3 To get the p value
 
 validation_test <- coxph(Surv(EVENT_MON, EVENT) ~ .pred_linear_pred, data = gse96058_results)
 
