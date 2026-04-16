@@ -183,16 +183,23 @@ print(paste("Original:", length(late_death.genes), "Common:", length(common_gene
 
 # 6.- Validation ----------------------------------------------------------
 
+# 6.1 Extract the trained recipe from the workflow
+
+trained_rec <- extract_recipe(final_fit)
+
+# 6.2 "Bake" the RNA-seq data and by that we mean to apply the same steps of the recipe to the new data
+
+final_df_baked <- bake(trained_rec, new_data = final_df)
 
 # This is the predict phase
 
-gse2034_results <- predict(final_fit, new_data = final_df) %>%
+gse2034_results <- predict(final_df_baked, new_data = final_df) %>%
   bind_cols(final_df)
 
 
-# To get the p value
+# 6.3 To get the p value
 
-validation_test <- coxph(Surv(EVENT_MON, EVENT) ~ .pred_time, data = gse2034_results)
+validation_test <- coxph(Surv(EVENT_MON, EVENT) ~ .pred_linear_pred, data = gse96058_results)
 
 summary(validation_test)
 
@@ -202,7 +209,7 @@ library(survminer)
 # Create risk groups based on the median of the predictions
 
 gse2034_results <- gse2034_results %>%
-  mutate(risk_group = ifelse(.pred_time < median(.pred_time), "High Risk", "Low Risk"))
+  mutate(risk_group = as.factor(ifelse(.pred_linear_pred < median(.pred_linear_pred), "High Risk", "Low Risk")))
 
 # Fit the KM curve
 
@@ -219,11 +226,14 @@ ggsurvplot(km_fit,
 
 
 gse2034_results <- gse2034_results %>%
-  mutate(pred_z = scale(.pred_time))
+  mutate(pred_z = scale(.pred_linear_pred))
 
 # Run Cox again
+gse2034_results$risk_group <- relevel(gse2034_results$risk_group, ref = "Low Risk")
 
-summary(coxph(Surv(EVENT_MON, EVENT) ~ pred_z, data = gse2034_results))
+
+summary_gse2034 <- summary(coxph(Surv(EVENT_MON, EVENT) ~ risk_group, data = gse2034_results))
+
 
 library(timeROC)
 
