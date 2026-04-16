@@ -36,7 +36,7 @@ test_data  <- testing(split)
 # 2.1 Recipe
 
 lr_rec <- recipe(surv_obj ~ ., data = train_data) %>% # Survival object created in preprocessing for linear regressions
-  step_rm(EVENT, EVENT_MON) %>% # Eliminate the columns of the outcomes since the outcome is the surv object
+  update_role(EVENT_MON, EVENT, new_role = "non_predictor") %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_zv(all_predictors()) %>% # Eliminates variables with a single value
   step_nzv(all_predictors()) %>% # Eliminates higly sparsed variables
@@ -196,7 +196,7 @@ time_roc <- timeROC(
   delta = test_data$EVENT,
   marker = -test_pred$.pred_linear_pred,
 cause = 1,
-  times = c(36, 60, 120),  # 3y, 5y, 10y
+  times = c(36, 60, 72, 120),  # 3y, 5y, 10y
   iid = TRUE
 )
 
