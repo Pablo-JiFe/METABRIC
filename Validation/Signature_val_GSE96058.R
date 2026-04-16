@@ -119,7 +119,7 @@ counts_data.gse96058[1:5,1:5]
 
 metadata.gse96058_er_pos <-
   metadata.gse96058 %>% 
-  filter(er_pred_sgc == 1) %>% 
+  filter(er_status == 1) %>% 
   rownames_to_column("id") %>% 
   mutate(EVENT = os_status,
          EVENT_MON = os_months,
@@ -150,11 +150,11 @@ counts_data.gse96058_erpos <- scale(t(counts_data.gse96058_erpos))
 
 
 # Find genes present in both data sets
-common_genes_meta.gse96058 <- intersect(boruta_signature, colnames(counts_data.gse96058_erpos))
+common_genes_meta.gse96058 <- intersect(late_death.genes, colnames(counts_data.gse96058_erpos))
 
 
 # Check how many are lost
-print(paste("Original:", length(boruta_signature), "Common:", length(common_genes_meta.gse96058)))
+print(paste("Original:", length(late_death.genes), "Common:", length(common_genes_meta.gse96058)))
 
 counts_data.gse96058_erpos <- counts_data.gse96058_erpos[ , common_genes_meta.gse96058]
 
@@ -287,7 +287,7 @@ independent_prog.gse96058 <- coxph(surv_obj ~ PAM50 + KI67 + HER2 + AGE + LYMPH 
 #################################################################################
 #################################################################################
 
-text_validation.gse96058 <- paste("Esta firma en GSE96058 consiguio un HR de ",
+text_validation.gse96058 <- paste("Al dividir en grupos de alto y bajo riesgo, esta firma en GSE96058 consiguio un HR de ",
       round(summary_gse96058$coefficients[2], 3),
       " (IC 95% de ",
       round(summary_gse96058$conf.int[3], 3),
