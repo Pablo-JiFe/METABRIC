@@ -238,7 +238,7 @@ res_auc <- timeROC(T = gse96058_results$EVENT_MON,
                    delta = gse96058_results$EVENT,
                    marker = -gse96058_results$pred_z,
                    cause = 1, # The event code
-                   times = c(36, 60, 80), # 3, 5, and 10 years
+                   times = c(36, 60, 72, 80), # 3, 5, and 6 years
                    iid = TRUE)
 
 # View the AUC values
@@ -261,7 +261,7 @@ late_genes.patients_gse96058.cox <-
          PAM50 = pam50,
          AGE = as.numeric(age),
          KI67 = ki67_pred_sgc,
-         SCORE = gse96058_results$.pred_linear_pred * -1
+         SCORE = gse96058_results$.pred_linear_pred
   ) %>% 
   dplyr::select(all_of(late_death.genes),
                 surv_obj,
