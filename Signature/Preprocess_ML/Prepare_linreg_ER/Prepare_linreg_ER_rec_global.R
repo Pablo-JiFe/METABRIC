@@ -1,6 +1,10 @@
 # In this file we prepare the data for the linear regression model using only ER+ patients
 # and with recurrence parameters
+boruta_signature <- read.csv("C:/R/METABRIC/Results/final_gene_signature.csv", 
+                             check.names = FALSE)
+boruta_signature <- as.character(boruta_signature$x)
 
+label <- "Para predecir recurrencia en pacientes ER positivo de la base de METABRIC "
 
 # 1.- Preparing metadata --------------------------------------------------
 
@@ -9,13 +13,13 @@ er_patients_recu <- metadata %>%
 
 # 1.2 List of genes to use (check dictionary below to understand the different variables that are used)
 
-late_death.genes <-  significant_genes$term #rownames(res_sig)
-significant_genes$term %>% 
-  cat(sep = ", ")
+late_death.genes <- common_genes_meta.gse2043  #boruta_signature # #significant_genes #$term # significant_genes$term  #fused_signature #rownames(res_sig) #common_genes
+# significant_genes$term %>% 
+#   cat(sep = ", ")
 
 
 # 1.3 Object with all the patients ER + and expression of only the genes of interest
-
+rownames(counts_data) <- make.names(rownames(counts_data))
 late_genes.patients <- counts_data[late_death.genes, er_patients_recu$PATIENT_ID]
 
 # 1.4  Scaling is done in the linear regression recipe
@@ -35,21 +39,21 @@ all(rownames(late_genes.patients) == er_patients_recu$PATIENT_ID)
 late_genes.patients <- 
   late_genes.patients %>% 
   as.data.frame() %>% 
-  mutate(SURVIVAL = er_patients_recu$RECURR_STAT, 
-         SURVIVAL = as.numeric(SURVIVAL),
-         SURVIVAL_MON = er_patients_recu$RFS_MONTHS,
-         SURVIVAL_MON = as.numeric(SURVIVAL_MON)
+  rownames_to_column("PATIENT_ID") %>% 
+  left_join(er_patients_recu, by = "PATIENT_ID") %>% 
+  column_to_rownames("PATIENT_ID") %>% 
+  mutate(EVENT = as.numeric(RECURR_STAT),
+         EVENT_MON = as.numeric(RFS_MONTHS)
   ) %>%  # Turn to factor for machine learning
-  filter(SURVIVAL_MON > 0) %>% 
-  drop_na()  
-
-library(survival)
-
-late_genes.patients$surv_obj <- Surv(
-  time  = late_genes.patients$SURVIVAL_MON,
-  event = late_genes.patients$SURVIVAL,
-  type  = "right"
-)
+  dplyr::select(all_of(late_death.genes),
+                EVENT_MON,
+                EVENT) %>% 
+  filter(EVENT_MON > 0) %>% # Eliminate those with 0 survival months
+  drop_na() %>% 
+  mutate(surv_obj = Surv(
+    time  = EVENT_MON,
+    event = EVENT,
+    type  = "right"))
 
 # /Dictionary/ ##########################
 #>  VARIABLES FOR 1.2 late_death.genes
