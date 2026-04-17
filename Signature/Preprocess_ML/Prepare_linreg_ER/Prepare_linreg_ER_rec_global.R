@@ -11,6 +11,8 @@ label <- "For predicting recurrence in ER+ patients from METABRIC cohort"
 er_patients_recu <- metadata %>% 
   filter(ER_IHC == "Positve")
 
+ml_metadata <- er_patients_recu
+
 # 1.2 List of genes to use (check dictionary below to understand the different variables that are used)
 
 proof_genes <- boruta_signature # common_genes_meta.gse2043  #boruta_signature # #significant_genes #$term # significant_genes$term  #fused_signature #rownames(res_sig) #common_genes
