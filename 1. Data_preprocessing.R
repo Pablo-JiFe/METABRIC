@@ -5,7 +5,7 @@ library(tidyverse)
 microarray_data <- read.table("D:/brca_metabric/brca_metabric/data_mrna_illumina_microarray.txt",
                               header = TRUE)
 
-# 1.1.2 Metadata
+# 1.1.2 Metadata loading
 
 clinical_data <- read.delim(
   "D:/brca_metabric/brca_metabric/data_clinical_patient.txt",
@@ -13,7 +13,7 @@ clinical_data <- read.delim(
   stringsAsFactors = FALSE
 )
 
-# 1.1.3 Check if rownames in clinical data have the same nomenclature as the colname sin microarray_data, if they differ by a point or dash (MB.0000 vs MB-0000) use
+# 1.1.3 Check if rownames in clinical data have the same nomenclature as the colname in microarray_data, if they differ by a point or dash (MB.0000 vs MB-0000) use
 clinical_data$PATIENT_ID <- gsub("-", ".", clinical_data$PATIENT_ID)
 
 # 1.1.4 Object without ENTREZ and HUGO columns
