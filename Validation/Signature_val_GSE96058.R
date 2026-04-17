@@ -121,7 +121,7 @@ metadata.gse96058_er_pos <-
   metadata.gse96058 %>% 
   filter(er_status == 1) %>% 
   rownames_to_column("id") %>% 
-  mutate(EVENT = os_status,
+  mutate(EVENT_STAT = os_status,
          EVENT_MON = os_months,
          id = NULL) 
 
@@ -142,22 +142,22 @@ counts_data.gse96058_erpos <- t(counts_data.gse96058_erpos)
 
 
 # Find genes present in both data sets
-common_genes_meta.gse96058 <- intersect(late_death.genes, colnames(counts_data.gse96058_erpos))
+common_genes_meta.gse96058 <- intersect(proof_genes, colnames(counts_data.gse96058_erpos))
 
 
 # Check how many are lost
-print(paste("Original:", length(late_death.genes), "Common:", length(common_genes_meta.gse96058)))
+print(paste("Original:", length(proof_genes), "Common:", length(common_genes_meta.gse96058)))
 
 counts_data.gse96058_erpos <- counts_data.gse96058_erpos[ , common_genes_meta.gse96058]
 
-final_df <- 
+proof_genes_pt.gse96058 <- 
   counts_data.gse96058_erpos %>% 
   as.data.frame() %>% 
   rownames_to_column("title") %>% 
   left_join(metadata.gse96058_er_pos, by = "title") %>% 
-  mutate(surv_obj = Surv(time = EVENT_MON, event = EVENT, type = "right")) %>% 
-  dplyr::select(all_of(late_death.genes),
-                EVENT,
+  mutate(surv_obj = Surv(time = EVENT_MON, event = EVENT_STAT, type = "right")) %>% 
+  dplyr::select(all_of(proof_genes),
+                EVENT_STAT,
                 EVENT_MON,
                 title,
                 surv_obj) %>% 
@@ -179,17 +179,17 @@ trained_rec <- extract_recipe(final_fit)
 
 # 6.2 "Bake" the RNA-seq data and by that we mean to apply the same steps of the recipe to the new data
 
-final_df_baked <- bake(trained_rec, new_data = final_df)
+proof_genes_pt.gse96058_baked <- bake(trained_rec, new_data = proof_genes_pt.gse96058)
 
 # 6.3 This is the predict phase
 
-gse96058_results <- predict(final_fit, new_data = final_df_baked, type = "linear_pred") %>%
-  bind_cols(final_df_baked)
+gse96058_results <- predict(final_fit, new_data = proof_genes_pt.gse96058_baked, type = "linear_pred") %>%
+  bind_cols(proof_genes_pt.gse96058_baked)
 
 
 # 6.3 To get the p value
 
-validation_test <- coxph(Surv(EVENT_MON, EVENT) ~ .pred_linear_pred, data = gse96058_results)
+validation_test <- coxph(Surv(EVENT_MON, EVENT_STAT) ~ .pred_linear_pred, data = gse96058_results)
 
 summary(validation_test)
 
@@ -204,7 +204,7 @@ gse96058_results <- gse96058_results %>%
 
 # Fit the KM curve
 
-km_fit <- survfit(Surv(EVENT_MON, EVENT) ~ risk_group, data = gse96058_results)
+km_fit <- survfit(Surv(EVENT_MON, EVENT_STAT) ~ risk_group, data = gse96058_results)
 
 # Plot
 
@@ -222,11 +222,11 @@ gse96058_results <- gse96058_results %>%
 # Run Cox again
 gse96058_results$risk_group <- relevel(gse96058_results$risk_group, ref = "Low Risk")
 
-summary_gse96058 <- summary(coxph(Surv(EVENT_MON, EVENT) ~ risk_group, data = gse96058_results))
+summary_gse96058 <- summary(coxph(Surv(EVENT_MON, EVENT_STAT) ~ risk_group, data = gse96058_results))
 
 # Calculate the actual Concordance Index
-c_index_results.gse96058 <- concordance(Surv(EVENT_MON, EVENT) ~ .pred_linear_pred, 
-                               data = gse96058_results)
+c_index_results.gse96058 <- concordance(Surv(EVENT_MON, EVENT_STAT) ~ .pred_linear_pred, 
+                                        data = gse96058_results)
 
 
 
@@ -235,7 +235,7 @@ library(timeROC)
 # Area under the curve per time
 
 res_auc <- timeROC(T = gse96058_results$EVENT_MON,
-                   delta = gse96058_results$EVENT,
+                   delta = gse96058_results$EVENT_STAT,
                    marker = -gse96058_results$pred_z,
                    cause = 1, # The event code
                    times = c(36, 60, 72, 80), # 3, 5, and 6 years
@@ -249,8 +249,8 @@ res_auc_gse96058 <- res_auc$AUC %>%
 
 # Cox multivariado con clinica
 
-late_genes.patients_gse96058.cox <- 
-  final_df %>% 
+proof_genes_pt_gse96058.cox <- 
+  proof_genes_pt.gse96058 %>% 
   as.data.frame() %>% 
   rownames_to_column("title") %>% 
   left_join(metadata.gse96058_er_pos, by = "title", suffix = c("", ".y")) %>%
@@ -263,7 +263,7 @@ late_genes.patients_gse96058.cox <-
          KI67 = ki67_pred_sgc,
          SCORE = gse96058_results$.pred_linear_pred
   ) %>% 
-  dplyr::select(all_of(late_death.genes),
+  dplyr::select(all_of(proof_genes),
                 surv_obj,
                 LYMPH,
                 PAM50,
@@ -275,99 +275,6 @@ late_genes.patients_gse96058.cox <-
   na.omit()
 
 independent_prog.gse96058 <- coxph(surv_obj ~ PAM50 + KI67 + HER2 + AGE + LYMPH + SCORE, 
-                                   data = late_genes.patients_gse96058.cox) %>% 
+                                   data = proof_genes_pt_gse96058.cox) %>% 
   tidy(exponentiate = TRUE, conf.int = TRUE)
 
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-
-text_validation.gse96058 <- paste("Al dividir en grupos de alto y bajo riesgo, esta firma en GSE96058 consiguio un HR de ",
-      round(summary_gse96058$coefficients[2], 3),
-      " (IC 95% de ",
-      round(summary_gse96058$conf.int[3], 3),
-      " - ",
-      round(summary_gse96058$conf.int[4], 3),
-      ", pval de ",
-      summary_gse96058$coefficients[5],
-      "), C score de ",
-      round(c_index_results.gse96058$concordance, 2),
-      ", área bajo la curva a los 3 años de ",
-      round(res_auc_gse96058[1,1], 3),
-      ", a los 5 años de ",
-      round(res_auc_gse96058[2,1], 3),
-      ", y a los 6 años de",
-      round(res_auc_gse96058[3,1], 3)
-)
-
-cat(text_signature, text_validation.gse96058, sep = ". ")
-
-
-
-
-
-lymph_rows <- independent_prog.gse96058[grepl("LYMPH", independent_prog.gse96058$term),]
-
-best_lymph <- lymph_rows[which.min(lymph_rows$p.value),]
-
-significance.gse96058 <- if((independent_prog.gse96058[independent_prog.gse96058$term == "SCORE",]$p.value < 0.05) == TRUE){
-  "se mantuvo como un predictor de la supervivencia independiente significativo "
-}else{
-  "no se mantuvo como un predictor de la supervivencia independiente significativo " 
-}
-
-text_independent_prog.gse96058 <- paste0(
-  "Con esta base de datos, al realizar un cox multivariado junto a edad, ganglios linfaticos, fenotipos de PAM50, y KI67, la firma ",
-  significance.gse96058,
-  "obteniendo un HR de ",
-  round(independent_prog.gse96058$estimate[independent_prog.gse96058$term == "SCORE"], 3),
-  " (IC 95% de ",
-  round(independent_prog.gse96058$conf.low[independent_prog.gse96058$term == "SCORE"], 2),
-  " - ",
-  round(independent_prog.gse96058$conf.high[independent_prog.gse96058$term == "SCORE"], 2),
-  " pvalue de ",
-  independent_prog.gse96058$p.value[independent_prog.gse96058$term == "SCORE"],
-  ")",
-  if((independent_prog.gse96058[independent_prog.gse96058$term == "SCORE",]$p.value < best_lymph$p.value) == TRUE){
-    paste0(" superando a los ganglios linfaticos como predictor (HR de ",
-           round(best_lymph$estimate, 3),
-           " pval de ",
-           best_lymph$p.value,
-           ")")
-  }else{
-    paste0(" sin lograr superar a los ganglios linfaticos como predictor (HR de ",
-           round(best_lymph$estimate, 3),
-           " pval de ",
-           best_lymph$p.value,
-           ")")
-  },
-  if((independent_prog.gse96058[independent_prog.gse96058$term == "SCORE",]$p.value < independent_prog.gse96058[independent_prog.gse96058$term == "KI67",]$p.value) == TRUE & (independent_prog.gse96058[independent_prog.gse96058$term == "SCORE",]$p.value < best_lymph$p.value) == TRUE){
-    paste0(" e igualmente superando a KI67 como predictor (HR de ",
-           round(independent_prog.gse96058$estimate[independent_prog.gse96058$term == "KI67"], 3),
-           " pval de ",
-           independent_prog.gse96058$p.value[independent_prog.gse96058$term == "KI67"],
-           ")")
-  }else if((independent_prog.gse96058[independent_prog.gse96058$term == "SCORE",]$p.value < independent_prog.gse96058[independent_prog.gse96058$term == "KI67",]$p.value) == FALSE & (independent_prog.gse96058[independent_prog.gse96058$term == "SCORE",]$p.value < best_lymph$p.value) == TRUE){
-    paste0(" sin lograr superar a KI67 como predictor (HR de ",
-           round(independent_prog.gse96058$estimate[independent_prog.gse96058$term == "KI67"], 3),
-           " pval de ",
-           independent_prog.gse96058$p.value[independent_prog.gse96058$term == "KI67"],
-           ").")
-  }
-  else if((independent_prog.gse96058[independent_prog.gse96058$term == "SCORE",]$p.value < independent_prog.gse96058[independent_prog.gse96058$term == "KI67",]$p.value) == TRUE & (independent_prog.gse96058[independent_prog.gse96058$term == "SCORE",]$p.value < best_lymph$p.value) == FALSE){
-  paste0(" pero si superando a KI67 como predictor (HR de ",
-         round(independent_prog.gse96058$estimate[independent_prog.gse96058$term == "KI67"], 3),
-         " pval de ",
-         independent_prog.gse96058$p.value[independent_prog.gse96058$term == "KI67"],
-         ")")
-  }
-)
-
-text_gse96058 <- paste(text_validation.gse96058, text_independent_prog.gse96058, sep = ". ")
-
-cat(text_metabric, text_gse96058, sep = "\n")
