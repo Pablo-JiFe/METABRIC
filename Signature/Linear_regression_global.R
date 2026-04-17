@@ -16,9 +16,9 @@ set.seed(123)
 # 1.1 Split
 
 split <- initial_split(
-  late_genes.patients,
+  proof_genes_pt,
   prop = 0.8,
-  strata = EVENT   # maintain proportions
+  strata = EVENT_STAT  # maintain proportions
 )
 
 # > split
@@ -35,11 +35,11 @@ test_data  <- testing(split)
 
 # 2.1 Recipe
 
-lr_rec <- recipe(surv_obj ~ ., data = train_data) %>% # Survival object created in preprocessing for linear regressions
-  update_role(EVENT_MON, EVENT, new_role = "non_predictor") %>%
+lr_rec <- recipe(surv_obj ~ ., data = train_data) %>% # Survival object created in preprocessing for linear regression
+  update_role(EVENT_MON, EVENT_STAT, new_role = "non_predictor") %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_zv(all_predictors()) %>% # Eliminates variables with a single value
-  step_nzv(all_predictors()) %>% # Eliminates higly sparsed variables
+  step_nzv(all_predictors()) %>% # Eliminates highly sparse variables
   step_impute_mean(all_predictors()) %>% # Imputes NAs to mean of those variables
   step_normalize(all_predictors())  # Normalize all
 
@@ -60,8 +60,7 @@ lr_wf <- workflow() %>%
   add_recipe(lr_rec)
 
 
-# 3.- Selecting best penalizing values ------------------------------------
-
+# 3.- Selecting best penalizing parameters ------------------------------------
 
 set.seed(123)
 
@@ -70,10 +69,10 @@ set.seed(123)
 folds <- vfold_cv(
   train_data,
   v = 10,
-  strata = EVENT
+  strata = EVENT_STAT
 )
 
-# 3.2 Grid for range of penalizing
+# 3.2 Grid for penalizing range
 
 grid <- grid_regular(
   penalty(range = c(-4, 1)),   
@@ -103,7 +102,7 @@ best_params <- select_best(res_ml, metric = "concordance_survival")
 
 # 4.- Actual training -----------------------------------------------------
 
-# 4.1 Final workflow with the best parameter selected previously
+# 4.1 Final workflow with the selecting the best parameter tested previously
 
 final_wf <- finalize_workflow(lr_wf, best_params)
 
@@ -128,7 +127,7 @@ cat(coef_tbl$term, sep = ", ")
 
 test_pred <- predict(final_fit, new_data = test_data, type = "linear_pred")
 
-# 5.2 Creating groups for kaplan mayer curves
+# 5.2 Creating groups for Kaplan-Meier curves
 
 # 5.2.1 Creating column on test data with its prediction
 
@@ -156,13 +155,13 @@ fit_km <- survfit(surv_obj ~ risk_group, data = test_data)
 
 # 5.3.2 Plot
 
-ggsurvplot(fit_km, data = test_data, title = "Recurrence ER+  chemotherapy", ylab = "Recurrence probability")
+ggsurvplot(fit_km, data = test_data, title = "Recurrence ER+", ylab = "Recurrence probability")
 
 # 5.4 Tables
 
 survdiff(surv_obj ~ risk_group, data = test_data)
 
-# 5.4.1 Cox analysis table with HR
+# 5.4.1 Cox regression analysis table with HR
 
 summary_cox <- summary(coxph(surv_obj ~ risk_group, data = test_data))
 
@@ -177,14 +176,14 @@ eval_df <- dplyr::bind_cols(
 
 # 6.2 Compare concordance
 
-concordancia <- concordance(
+concordance <- concordance(
   surv_obj ~ .pred_linear_pred,
   data = eval_df
 )
 
 
 
-# 7.- AUC per time --------------------------------------------------------
+# 7.- Area under de curve (AUC) per time --------------------------------------------------------
 
 
 library(timeROC)
@@ -193,10 +192,10 @@ library(timeROC)
 
 time_roc <- timeROC(
   T = test_data$EVENT_MON,
-  delta = test_data$EVENT,
+  delta = test_data$EVENT_STAT,
   marker = -test_pred$.pred_linear_pred,
-cause = 1,
-  times = c(36, 60, 72, 120),  # 3y, 5y, 10y
+  cause = 1,
+  times = c(36, 60, 72, 120),  # 3y, 5y, 6y, 10y
   iid = TRUE
 )
 
@@ -204,13 +203,13 @@ auc <- time_roc$AUC %>%
   as.data.frame()
 
 
-late_genes.patients.cox <- late_genes.patients[rownames(test_data),]
+proof_genes_pt.cox <- proof_genes_pt[rownames(test_data),]
 
-late_genes.patients.cox <- 
-  late_genes.patients.cox %>% 
+proof_genes_pt.cox <- 
+  proof_genes_pt.cox %>% 
   as.data.frame() %>% 
   rownames_to_column("PATIENT_ID") %>% 
-  left_join(lm_metadata, by = "PATIENT_ID", suffix = c("", ".y")) %>%
+  left_join(ml_metadata, by = "PATIENT_ID", suffix = c("", ".y")) %>%
   dplyr::select(-ends_with(".y")) %>% 
   column_to_rownames("PATIENT_ID") %>% 
   mutate(HER2 = HER2_SNP6, 
@@ -222,7 +221,7 @@ late_genes.patients.cox <-
          CHEMO = CHEMOTHERAPY,
          SURGERY = BREAST_SURGERY
   ) %>% 
-  dplyr::select(all_of(late_death.genes),
+  dplyr::select(all_of(proof_genes),
                 surv_obj,
                 AGE,
                 LYMPH,
@@ -235,104 +234,7 @@ late_genes.patients.cox <-
   na.omit()
 
 independent_prog <- coxph(surv_obj ~ HORMONE + CHEMO + SURGERY + MENO + HER2 + AGE + LYMPH + SCORE, 
-                          data = late_genes.patients.cox) %>% 
+                          data = proof_genes_pt.cox) %>% 
   tidy(exponentiate = TRUE, conf.int = TRUE)
 
 
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-
-
-input_genes <- paste0(late_death.genes, collapse = ", ")
-
-genes_terms <- paste0(coef_tbl$term, collapse = ", ")
-
-input <- paste0(
-  "Input: ",
-  input_genes,
-  ". ")
-
-text_signature <- paste0(
-  label,
-  "se evaluó una firma con regresión lineal penalizada con un alpha de ",
-  best_params$mixture,
-  " un lambda de ",
-  best_params$penalty,
-  " y se obtuvo la firma con "
-  ,
-  length(coef_tbl$term),
-  " genes ",
-  " (",
-  genes_terms,
-  ")",
-  " que al estratificar en alto y bajo riesgo se obtuvo un HR de ",
-  round(summary_cox$coefficients[2], 3),
-  " (IC 95% de ",
-  round(summary_cox$conf.int[3], 3),
-  " - ",
-  round(summary_cox$conf.int[4], 3),
-  ", pval de ",
-  summary_cox$coefficients[5],
-  "), C score de ",
-  round(concordancia$concordance, 2),
-  ", área bajo la curva a los 3 años de ",
-  round(auc[1, 1], 3),
-  ", a los 5 años de ",
-  round(auc[2, 1], 3),
-  ", y a los 10 años de ",
-  round(auc[3, 1], 3)
-)
-
-cat(
-  input ,
-text_signature,
-sep = "\n"
-)
-
-
-
-
-significance <- if ((independent_prog[independent_prog$term == "SCORE", ]$p.value < 0.05) == TRUE) {
-  "se mantuvo como un predictor de la supervivencia independiente significativo "
-} else{
-  "no se mantuvo como un predictor de supervivencia independiente significativo "
-}
-
-text_independent_prog <- paste0(
-  "Al realizar un cox multivariado junto a edad, tratamiento, ganglios linfáticos  y menopausia, la firma ",
-  significance,
-  "obteniendo un HR de ",
-  round(independent_prog$estimate[independent_prog$term == "SCORE"], 3),
-  " (IC 95% de ",
-  round(independent_prog$conf.low[independent_prog$term == "SCORE"], 2),
-  " - ",
-  round(independent_prog$conf.high[independent_prog$term == "SCORE"], 2),
-  " pvalue de ",
-  independent_prog$p.value[independent_prog$term == "SCORE"],
-  ")",
-  if ((independent_prog[independent_prog$term == "SCORE", ]$p.value < independent_prog[independent_prog$term == "LYMPH", ]$p.value) == TRUE) {
-    paste0(
-      " superando a los ganglios linfáticos  como predictor (HR de ",
-      round(independent_prog$estimate[independent_prog$term == "LYMPH"], 3),
-      " pval de ",
-      independent_prog$p.value[independent_prog$term == "LYMPH"],
-      ")"
-    )
-  } else{
-    paste0(
-      " sin lograr superar a los ganglios linfaticos como predictor (HR de ",
-      round(independent_prog$estimate[independent_prog$term == "LYMPH"], 3),
-      " pval de ",
-      independent_prog$p.value[independent_prog$term == "LYMPH"],
-      ")."
-    )
-  }
-)
-
-text_metabric <- paste(text_signature, text_independent_prog, sep = ". ")
