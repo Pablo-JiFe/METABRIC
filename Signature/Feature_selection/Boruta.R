@@ -14,15 +14,15 @@ options(expressions = 500000)
 boruta_metadata <- metadata %>% 
   as.data.frame() %>% 
   mutate(
-    SURVIVAL = as.numeric(RECURR_STAT),
-    SURVIVAL_MON = as.numeric(RFS_MONTHS)
+    EVENT_STAT = as.numeric(RECURR_STAT),
+    EVENT_MON = as.numeric(RFS_MONTHS)
   ) %>% 
   filter(
-    SURVIVAL_MON > 0,
+    EVENT_MON > 0,
     ER_IHC == "Positve"  # Keep only ER+ patients
   ) %>% 
-  drop_na(SURVIVAL, SURVIVAL_MON) %>% # Eliminate rows with NAs
-  dplyr::select(PATIENT_ID, SURVIVAL, SURVIVAL_MON) # Select columns to create outcome and to identify patients
+  drop_na(EVENT_STAT, EVENT_MON) %>% # Eliminate rows with NAs
+  dplyr::select(PATIENT_ID, EVENT_STAT, EVENT_MON) # Select columns to create outcome and to identify patients
 
 # 3. Align Expression Data & Feature Engineering ------------------
 
@@ -37,12 +37,12 @@ boruta_df <- counts_data[, boruta_metadata$PATIENT_ID] %>%
 
 # 3.2 Create the Survival Object
 
-boruta_df$surv_obj <- Surv(time = boruta_df$SURVIVAL_MON, event = boruta_df$SURVIVAL)
+boruta_df$surv_obj <- Surv(time = boruta_df$EVENT_MON, event = boruta_df$EVENT_STAT)
 
 # 3.3 Remove the survival columns that do not correspond to the surv_obj
 
 boruta_df <- boruta_df %>% 
-  dplyr::select(-SURVIVAL, -SURVIVAL_MON)
+  dplyr::select(-EVENT_STAT, -EVENT_MON)
 
 # 4. Handle Missing Values (Required for Ranger) ------------------
 
@@ -60,7 +60,7 @@ vars <- apply(boruta_df[, setdiff(colnames(boruta_df), "surv_obj")], 2, var)
 
 top_genes <- names(sort(vars, decreasing = TRUE))[1:3000]
 
-# 5.2.2 Maintain only genes that correspond to the top 3000 and the surv object
+# 5.2.2 Maintain only genes that correspond to the top 3000 and the survival object
 
 boruta_df_small <- boruta_df[, c(top_genes, "surv_obj")]
 
